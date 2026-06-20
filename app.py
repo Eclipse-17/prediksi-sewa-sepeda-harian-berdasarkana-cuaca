@@ -3,82 +3,102 @@ import pandas as pd
 import joblib
 import os
 
+
 st.title("Prediksi Penyewaan Sepeda")
 
-# ========================
-# Load Model dengan aman
-# ========================
-BASE_DIR = os.path.dirname(__file__)
 
-model_path = os.path.join(BASE_DIR, 'model_xgb.pkl')
-columns_path = os.path.join(BASE_DIR, 'columns.pkl')
+# =====================
+# LOAD MODEL
+# =====================
 
-# Debug (biar kamu sadar isi folder apa)
-st.write("Isi folder:", os.listdir(BASE_DIR))
+model = joblib.load(
+    "model_xgb.pkl"
+)
 
-# Cek file
-if not os.path.exists(model_path):
-    st.error("model_xgb.pkl tidak ditemukan. Upload dulu ke project.")
-    st.stop()
+columns = joblib.load(
+    "columns.pkl"
+)
 
-if not os.path.exists(columns_path):
-    st.error("columns.pkl tidak ditemukan. Upload dulu ke project.")
-    st.stop()
 
-# Load
-model = joblib.load(model_path)
-training_columns = joblib.load(columns_path)
+# =====================
+# INPUT FILE
+# =====================
 
-# ========================
-# Upload file CSV
-# ========================
-uploaded_file = st.file_uploader("Upload file CSV", type=["csv"])
+file = st.file_uploader(
+    "Upload file CSV",
+    type="csv"
+)
 
-if uploaded_file:
-    df = pd.read_csv(uploaded_file)
-    st.write("Data Input:", df.head())
 
-    # ========================
-    # Preprocessing
-    # ========================
+if file:
+
+    df = pd.read_csv(file)
+
+    st.subheader("Data Input")
+    st.write(df.head())
+
+
+    # =====================
+    # PREPROCESSING
+    # =====================
+
     categorical_cols = [
-        'season', 'yr', 'mnth', 'holiday',
-        'weekday', 'workingday', 'weathersit'
+        'season',
+        'yr',
+        'mnth',
+        'holiday',
+        'weekday',
+        'workingday',
+        'weathersit'
     ]
 
-    # Cek kolom wajib
-    missing_cols = [col for col in categorical_cols if col not in df.columns]
-    if missing_cols:
-        st.error(f"Kolom tidak lengkap: {missing_cols}")
-        st.stop()
 
-    df_processed = pd.get_dummies(df, columns=categorical_cols, drop_first=True)
+    df_process = pd.get_dummies(
+        df,
+        columns=categorical_cols,
+        drop_first=True
+    )
 
-    # Samakan kolom dengan training
-    for col in training_columns:
-        if col not in df_processed:
-            df_processed[col] = 0
+
+    # Tambah kolom yang hilang
+
+    for col in columns:
+        if col not in df_process.columns:
+            df_process[col] = 0
+
 
     # Urutkan kolom
-    df_processed = df_processed[training_columns]
 
-    # ========================
-    # Prediksi
-    # ========================
-    try:
-        predictions = model.predict(df_processed)
-        df['prediksi'] = predictions
+    df_process = df_process[columns]
 
-        st.write("Hasil Prediksi:", df)
 
-        # Download
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            "Download hasil",
-            csv,
-            "hasil_prediksi.csv",
-            "text/csv"
-        )
+    # =====================
+    # PREDIKSI
+    # =====================
 
-    except Exception as e:
-        st.error(f"Terjadi error saat prediksi: {e}")
+    hasil = model.predict(
+        df_process
+    )
+
+
+    df["prediksi"] = hasil
+
+
+    st.subheader("Hasil Prediksi")
+
+    st.write(df)
+
+
+    # Download hasil
+
+    csv = df.to_csv(
+        index=False
+    ).encode("utf-8")
+
+
+    st.download_button(
+        "Download Hasil",
+        csv,
+        "hasil_prediksi.csv",
+        "text/csv"
+    )
